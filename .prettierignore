@@ -1,0 +1,7 @@
+dist/
+bin/
+node_modules/
+*.md
+.env*
+.documenter.json
+documenter.config.json 

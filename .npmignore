@@ -1,0 +1,55 @@
+# Development files
+src/
+*.ts
+!*.d.ts
+
+# Build artifacts  
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env*
+!.env.example
+
+# Config files (should be created by user)
+.documenter.json
+documenter.config.json
+
+# Git files
+.git/
+.gitignore
+
+# Documentation build
+docs/
+
+# Test files
+test/
+tests/
+*.test.js
+*.test.ts
+*.spec.js  
+*.spec.ts
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Lock files (let users choose their package manager)
+package-lock.json
+yarn.lock
+
+# Temporary files
+*.tmp
+*.temp 

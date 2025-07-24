@@ -1,10 +1,38 @@
 {
-  "name": "documenter",
-  "version": "1.0.0",
+  "name": "ai-documenter",
+  "version": "1.6.2",
+  "description": "AI-powered technical documentation assistant for analyzing codebases and generating documentation",
+  "main": "bin/ai-documenter.js",
+  "bin": {
+    "ai-documenter": "./bin/ai-documenter"
+  },
+  "files": [
+    "bin/ai-documenter",
+    "README.md"
+  ],
+  "keywords": [
+    "documentation",
+    "ai",
+    "technical-writing",
+    "openai",
+    "cli",
+    "code-analysis",
+    "readme-generator"
+  ],
+  "author": "Mike Weaver",
+  "email": "michael@triplewhale.com",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
-    "start": "tsx src/cli.ts",
-    "dev": "tsx src/cli.ts",
-    "build": "mkdir -p bin && npx esbuild src/cli.ts --bundle --platform=node --target=node22 --outfile=bin/documenter.js && echo '#!/usr/bin/env node' | cat - bin/documenter.js > bin/documenter && chmod +x bin/documenter && rm bin/documenter.js"
+    "start": "tsx src/main.ts",
+    "dev": "tsx src/main.ts",
+    "build": "npm run type-check && mkdir -p bin && npx esbuild src/main.ts --bundle --platform=node --target=node22 --outfile=bin/ai-documenter.js --external:fsevents && echo '#!/usr/bin/env node' | cat - bin/ai-documenter.js > bin/ai-documenter && chmod +x bin/ai-documenter && rm bin/ai-documenter.js",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write src/**/*.ts",
+    "format:check": "prettier --check src/**/*.ts",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@openai/agents": "^0.0.2",
@@ -15,7 +43,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.30",
+    "prettier": "^3.0.0",
     "tsx": "^4.19.4",
+    "typescript": "^5.6.0",
     "esbuild": "^0.20.0"
   }
 }

@@ -1,4 +1,3 @@
-# Logs
 logs
 *.log
 npm-debug.log*
@@ -8,9 +7,13 @@ dist
 bin
 *.local
 
-# Editor directories and files
 !.vscode/extensions.json
 .idea
 .DS_Store
 
 .env
+# Configuration files with potentially sensitive data
+.documenter.*
+
+package-lock.json
+yarn.lock
