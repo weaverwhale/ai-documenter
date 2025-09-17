@@ -55,14 +55,29 @@ export class DocumenterCLI implements CLIManager {
     }
 
     // Create provider based on configuration
-    const providerConfig: ProviderConfig = {
-      provider: this.config.provider || 'openai',
-      ...(this.config.openai_api_key && { openai_api_key: this.config.openai_api_key }),
-      ...(this.config.openai_model && { openai_model: this.config.openai_model }),
-      ...(this.config.lmstudio_endpoint && { lmstudio_endpoint: this.config.lmstudio_endpoint }),
-      ...(this.config.lmstudio_model && { lmstudio_model: this.config.lmstudio_model }),
-      ...(this.config.timeout && { timeout: this.config.timeout }),
-    };
+    let providerConfig: ProviderConfig;
+
+    if (this.config.provider === 'openai') {
+      providerConfig = {
+        provider: 'openai',
+        openai_api_key: this.config.openai_api_key,
+        openai_model: this.config.openai_model,
+        timeout: this.config.timeout,
+      };
+    } else if (this.config.provider === 'lmstudio') {
+      providerConfig = {
+        provider: 'lmstudio',
+        lmstudio_endpoint: this.config.lmstudio_endpoint,
+        lmstudio_model: this.config.lmstudio_model,
+        timeout: this.config.timeout,
+      };
+    } else {
+      // Default to OpenAI if provider is undefined
+      providerConfig = {
+        provider: 'openai',
+        timeout: this.config.timeout,
+      };
+    }
 
     const provider = createProvider(providerConfig);
 

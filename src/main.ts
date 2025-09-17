@@ -14,7 +14,7 @@ process.on('SIGINT', () => {
  * Main application entry point
  */
 export async function main(): Promise<void> {
-  const configManager = ConfigManager.getInstance();
+  const configManager = new ConfigManager();
   const cli = new DocumenterCLI(configManager);
 
   try {

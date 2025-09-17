@@ -4,6 +4,10 @@ import { ConfigurationError, ProviderError } from '../classes/errors';
 
 // OpenAI provider
 export const createOpenAIProvider = (config: ProviderConfig): LLMProvider => {
+  if (config.provider !== 'openai') {
+    throw new ConfigurationError('OpenAI provider config required', { provider: config.provider });
+  }
+
   if (!config.openai_api_key) {
     throw new ConfigurationError('OpenAI API key is required', { provider: 'openai' });
   }
@@ -30,6 +34,12 @@ export const createOpenAIProvider = (config: ProviderConfig): LLMProvider => {
 
 // LMStudio provider
 export const createLMStudioProvider = (config: ProviderConfig): LLMProvider => {
+  if (config.provider !== 'lmstudio') {
+    throw new ConfigurationError('LMStudio provider config required', {
+      provider: config.provider,
+    });
+  }
+
   const endpoint = config.lmstudio_endpoint || 'http://localhost:1234/v1';
 
   try {
@@ -67,15 +77,17 @@ export const createLMStudioProvider = (config: ProviderConfig): LLMProvider => {
 
 // Provider factory
 export const createProvider = (config: ProviderConfig): LLMProvider => {
-  switch (config.provider) {
+  const { provider } = config;
+
+  switch (provider) {
     case 'openai':
       return createOpenAIProvider(config);
     case 'lmstudio':
       return createLMStudioProvider(config);
-    default:
-      throw new ConfigurationError(`Unsupported provider: ${config.provider}`, {
-        provider: config.provider,
+    default: {
+      throw new ConfigurationError(`Unsupported provider: ${provider}`, {
         supportedProviders: ['openai', 'lmstudio'],
       });
+    }
   }
 };

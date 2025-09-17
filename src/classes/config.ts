@@ -5,7 +5,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import dotenv from 'dotenv';
-import { DocumenterConfig, DefaultDocumenterConfig } from '../types';
+import { DocumenterConfig, DefaultOpenAIConfig, DefaultLMStudioConfig } from '../types';
 import { ConfigurationError, getErrorMessage } from '../classes/errors';
 import { validateConfig, DocumenterConfigSchema } from '../helpers/validation';
 
@@ -19,17 +19,41 @@ class ConfigBuilder {
    * Start with default configuration values
    */
   withDefaults(): ConfigBuilder {
-    const defaults: DefaultDocumenterConfig = {
-      provider: 'openai',
-      openai_model: 'gpt-4o-mini',
-      lmstudio_endpoint: 'http://localhost:1234/v1',
-      lmstudio_model: 'local-model',
+    // Set base defaults first
+    const baseDefaults = {
       max_conversation_history: 10,
       default_output_dir: './docs',
       timeout: 3600000, // 1 hour timeout
     };
 
-    this.config = { ...this.config, ...defaults };
+    // Set provider-specific defaults based on current provider or default to OpenAI
+    const provider = this.config.provider || 'openai';
+
+    if (provider === 'openai') {
+      const defaults: DefaultOpenAIConfig = {
+        provider: 'openai',
+        openai_model: 'gpt-4o-mini',
+        ...baseDefaults,
+      };
+      this.config = { ...this.config, ...defaults };
+    } else if (provider === 'lmstudio') {
+      const defaults: DefaultLMStudioConfig = {
+        provider: 'lmstudio',
+        lmstudio_endpoint: 'http://localhost:1234/v1',
+        lmstudio_model: 'local-model',
+        ...baseDefaults,
+      };
+      this.config = { ...this.config, ...defaults };
+    } else {
+      // If no provider specified, default to OpenAI
+      const defaults: DefaultOpenAIConfig = {
+        provider: 'openai',
+        openai_model: 'gpt-4o-mini',
+        ...baseDefaults,
+      };
+      this.config = { ...this.config, ...defaults };
+    }
+
     return this;
   }
 
@@ -37,53 +61,53 @@ class ConfigBuilder {
    * Apply environment variable configuration
    */
   withEnvironment(): ConfigBuilder {
-    const envConfig: Partial<DocumenterConfig> = {};
+    const envUpdates: Record<string, unknown> = {};
 
     // Provider selection
     if (process.env.LLM_PROVIDER) {
       const provider = process.env.LLM_PROVIDER.toLowerCase();
       if (provider === 'openai' || provider === 'lmstudio') {
-        envConfig.provider = provider as 'openai' | 'lmstudio';
+        envUpdates.provider = provider;
       }
     }
 
     // OpenAI configuration
     if (process.env.OPENAI_API_KEY) {
-      envConfig.openai_api_key = process.env.OPENAI_API_KEY;
+      envUpdates.openai_api_key = process.env.OPENAI_API_KEY;
     }
     if (process.env.OPENAI_MODEL) {
-      envConfig.openai_model = process.env.OPENAI_MODEL;
+      envUpdates.openai_model = process.env.OPENAI_MODEL;
     }
 
     // LMStudio configuration
     if (process.env.LMSTUDIO_ENDPOINT) {
-      envConfig.lmstudio_endpoint = process.env.LMSTUDIO_ENDPOINT;
+      envUpdates.lmstudio_endpoint = process.env.LMSTUDIO_ENDPOINT;
     }
     if (process.env.LMSTUDIO_MODEL) {
-      envConfig.lmstudio_model = process.env.LMSTUDIO_MODEL;
+      envUpdates.lmstudio_model = process.env.LMSTUDIO_MODEL;
     }
 
     // Common settings
     if (process.env.MAX_CONVERSATION_HISTORY) {
       const value = parseInt(process.env.MAX_CONVERSATION_HISTORY, 10);
       if (!isNaN(value) && value > 0) {
-        envConfig.max_conversation_history = value;
+        envUpdates.max_conversation_history = value;
       }
     }
 
     if (process.env.DEFAULT_OUTPUT_DIR) {
-      envConfig.default_output_dir = process.env.DEFAULT_OUTPUT_DIR;
+      envUpdates.default_output_dir = process.env.DEFAULT_OUTPUT_DIR;
     }
 
     if (process.env.LLM_TIMEOUT) {
       const value = parseInt(process.env.LLM_TIMEOUT, 10);
       if (!isNaN(value) && value > 0) {
-        envConfig.timeout = value;
+        envUpdates.timeout = value;
       }
     }
 
-    // Merge environment config, overriding existing values
-    this.config = { ...this.config, ...envConfig };
+    // Apply environment updates
+    Object.assign(this.config, envUpdates);
     return this;
   }
 
@@ -91,7 +115,8 @@ class ConfigBuilder {
    * Apply file-based configuration
    */
   withFile(fileConfig: Partial<DocumenterConfig>): ConfigBuilder {
-    this.config = { ...this.config, ...fileConfig };
+    // Merge file config with existing config
+    Object.assign(this.config, fileConfig);
     return this;
   }
 
@@ -104,8 +129,33 @@ class ConfigBuilder {
       throw new ConfigurationError('Provider must be specified');
     }
 
+    // Build the appropriate discriminated union type based on provider
+    let finalConfig: DocumenterConfig;
+
+    if (this.config.provider === 'openai') {
+      finalConfig = {
+        provider: 'openai',
+        openai_api_key: this.config.openai_api_key,
+        openai_model: this.config.openai_model,
+        max_conversation_history: this.config.max_conversation_history,
+        default_output_dir: this.config.default_output_dir,
+        timeout: this.config.timeout,
+      };
+    } else if (this.config.provider === 'lmstudio') {
+      finalConfig = {
+        provider: 'lmstudio',
+        lmstudio_endpoint: this.config.lmstudio_endpoint,
+        lmstudio_model: this.config.lmstudio_model,
+        max_conversation_history: this.config.max_conversation_history,
+        default_output_dir: this.config.default_output_dir,
+        timeout: this.config.timeout,
+      };
+    } else {
+      throw new ConfigurationError(`Unsupported provider: ${this.config.provider}`);
+    }
+
     // Validate using Zod schema
-    const validatedConfig = validateConfig(DocumenterConfigSchema, this.config, 'final');
+    const validatedConfig = validateConfig(DocumenterConfigSchema, finalConfig, 'final');
 
     // Additional provider-specific validation
     this.validateProviderRequirements(validatedConfig);
@@ -117,12 +167,14 @@ class ConfigBuilder {
    * Validate provider-specific requirements
    */
   private validateProviderRequirements(config: DocumenterConfig): void {
-    if (config.provider === 'openai' && !config.openai_api_key) {
-      throw new ConfigurationError(
-        'OpenAI API key is required when using OpenAI provider. ' +
-          'Set OPENAI_API_KEY environment variable or add it to your config file.',
-        { provider: config.provider }
-      );
+    if (config.provider === 'openai') {
+      if (!config.openai_api_key) {
+        throw new ConfigurationError(
+          'OpenAI API key is required when using OpenAI provider. ' +
+            'Set OPENAI_API_KEY environment variable or add it to your config file.',
+          { provider: config.provider }
+        );
+      }
     }
 
     if (config.provider === 'lmstudio') {
@@ -149,20 +201,9 @@ class ConfigBuilder {
 
 export class ConfigManager {
   private config: DocumenterConfig | null = null;
-  private static _instance: ConfigManager | null = null;
 
   constructor() {
-    // Allow direct instantiation for testing and dependency injection
-  }
-
-  /**
-   * Get singleton instance of ConfigManager (for backwards compatibility)
-   */
-  static getInstance(): ConfigManager {
-    if (!ConfigManager._instance) {
-      ConfigManager._instance = new ConfigManager();
-    }
-    return ConfigManager._instance;
+    // Direct instantiation for dependency injection
   }
 
   /**
@@ -286,12 +327,12 @@ export class ConfigManager {
         return false;
       }
 
-      if (provider === 'openai') {
+      if (provider === 'openai' && config.provider === 'openai') {
         return !!config.openai_api_key;
       }
 
-      if (provider === 'lmstudio') {
-        return !!config.lmstudio_endpoint && !!config.lmstudio_model;
+      if (provider === 'lmstudio' && config.provider === 'lmstudio') {
+        return !!(config.lmstudio_endpoint && config.lmstudio_model);
       }
 
       return false;
@@ -313,18 +354,21 @@ export class ConfigManager {
 
     const summary = {
       provider: config.provider || 'openai',
-      model:
-        config.provider === 'lmstudio'
-          ? config.lmstudio_model || 'local-model'
-          : config.openai_model || 'gpt-4o-mini',
+      model: 'gpt-4o-mini', // default
       workingDir: process.cwd(),
     };
 
-    if (config.provider === 'lmstudio' && config.lmstudio_endpoint) {
-      return {
-        ...summary,
-        endpoint: config.lmstudio_endpoint,
-      };
+    if (config.provider === 'lmstudio') {
+      summary.model = config.lmstudio_model || 'local-model';
+
+      if (config.lmstudio_endpoint) {
+        return {
+          ...summary,
+          endpoint: config.lmstudio_endpoint,
+        };
+      }
+    } else if (config.provider === 'openai') {
+      summary.model = config.openai_model || 'gpt-4o-mini';
     }
 
     return summary;
@@ -333,19 +377,19 @@ export class ConfigManager {
   /**
    * Create a sanitized version of config for logging (removes sensitive data)
    */
-  sanitizeConfigForLogging(config: DocumenterConfig): Partial<DocumenterConfig> {
-    const sanitized = { ...config };
-
-    if (sanitized.openai_api_key) {
-      sanitized.openai_api_key = '[REDACTED]';
+  sanitizeConfigForLogging(config: DocumenterConfig): DocumenterConfig {
+    if (config.provider === 'openai') {
+      return {
+        ...config,
+        openai_api_key: config.openai_api_key ? '[REDACTED]' : config.openai_api_key,
+      };
+    } else if (config.provider === 'lmstudio') {
+      return { ...config };
+    } else {
+      return { ...config };
     }
-
-    return sanitized;
   }
 }
-
-// Export singleton instance
-export const configManager = ConfigManager.getInstance();
 
 // Export ConfigBuilder for direct use and testing
 export { ConfigBuilder };

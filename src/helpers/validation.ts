@@ -5,39 +5,53 @@
 import { z } from 'zod';
 import type { ValidAnalyzeProjectInput, ValidSearchFileContentInput } from '../types';
 
-// Configuration validation schemas
-export const DocumenterConfigSchema = z.object({
-  provider: z.enum(['openai', 'lmstudio']).optional(),
-  openai_api_key: z.string().optional(),
-  openai_model: z.string().optional(),
-  lmstudio_endpoint: z.string().url().optional(),
-  lmstudio_model: z.string().optional(),
+// Configuration validation schemas - discriminated unions
+const BaseDocumenterConfigSchema = z.object({
   max_conversation_history: z.number().int().min(1).max(100).optional(),
   default_output_dir: z.string().optional(),
   timeout: z.number().int().min(1000).optional(),
 });
 
-export const ProviderConfigSchema = z
-  .object({
-    provider: z.enum(['openai', 'lmstudio']),
-    openai_api_key: z.string().optional(),
-    openai_model: z.string().optional(),
-    lmstudio_endpoint: z.string().url().optional(),
-    lmstudio_model: z.string().optional(),
-    timeout: z.number().int().min(1000).optional(),
-  })
-  .refine(
-    data => {
-      if (data.provider === 'openai') {
-        return data.openai_api_key !== undefined;
-      }
-      return true;
-    },
-    {
-      message: 'OpenAI API key is required when using OpenAI provider',
-      path: ['openai_api_key'],
-    }
-  );
+const OpenAIDocumenterConfigSchema = BaseDocumenterConfigSchema.extend({
+  provider: z.literal('openai'),
+  openai_api_key: z.string().optional(),
+  openai_model: z.string().optional(),
+});
+
+const LMStudioDocumenterConfigSchema = BaseDocumenterConfigSchema.extend({
+  provider: z.literal('lmstudio'),
+  lmstudio_endpoint: z.string().url().optional(),
+  lmstudio_model: z.string().optional(),
+});
+
+const UndefinedProviderDocumenterConfigSchema = BaseDocumenterConfigSchema.extend({
+  provider: z.undefined().optional(),
+});
+
+export const DocumenterConfigSchema = z.union([
+  OpenAIDocumenterConfigSchema,
+  LMStudioDocumenterConfigSchema,
+  UndefinedProviderDocumenterConfigSchema,
+]);
+
+const OpenAIProviderConfigSchema = z.object({
+  provider: z.literal('openai'),
+  openai_api_key: z.string().optional(),
+  openai_model: z.string().optional(),
+  timeout: z.number().int().min(1000).optional(),
+});
+
+const LMStudioProviderConfigSchema = z.object({
+  provider: z.literal('lmstudio'),
+  lmstudio_endpoint: z.string().url().optional(),
+  lmstudio_model: z.string().optional(),
+  timeout: z.number().int().min(1000).optional(),
+});
+
+export const ProviderConfigSchema = z.discriminatedUnion('provider', [
+  OpenAIProviderConfigSchema,
+  LMStudioProviderConfigSchema,
+]);
 
 // Tool input validation schemas
 export const ReadFileInputSchema = z.object({

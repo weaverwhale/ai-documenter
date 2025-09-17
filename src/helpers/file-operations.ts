@@ -298,9 +298,11 @@ export async function getFileInfoOptimized(filePath: string): Promise<FileInfo> 
       created: stats.birthtime.toISOString(),
       permissions: stats.mode.toString(8),
       is_readable: true,
+      is_binary: isBinary,
+      is_large: stats.size > FILE_CONFIG.MAX_FILE_SIZE,
     };
 
-    // Add additional metadata
+    // Add directory-specific metadata
     if (stats.isDirectory()) {
       try {
         const items = await fs.readdir(resolvedPath);
@@ -308,10 +310,6 @@ export async function getFileInfoOptimized(filePath: string): Promise<FileInfo> 
       } catch {
         // Ignore if we can't read directory
       }
-    } else {
-      // Add binary detection result
-      info.is_binary = isBinary;
-      info.is_large = stats.size > FILE_CONFIG.MAX_FILE_SIZE;
     }
 
     return info;

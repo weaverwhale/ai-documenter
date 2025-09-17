@@ -12,26 +12,45 @@ import type {
   ChatCompletionMessageToolCall,
 } from 'openai/resources/chat/completions';
 
-// Configuration types
-export interface DocumenterConfig {
-  // Provider selection
-  provider?: 'openai' | 'lmstudio' | undefined;
-  // OpenAI specific
-  openai_api_key?: string | undefined;
-  openai_model?: string | undefined;
-  // LMStudio specific
-  lmstudio_endpoint?: string | undefined;
-  lmstudio_model?: string | undefined;
-  // Common settings
+// Configuration types - using discriminated unions
+export interface BaseDocumenterConfig {
   max_conversation_history?: number | undefined;
   default_output_dir?: string | undefined;
   timeout?: number | undefined;
 }
 
+export interface OpenAIDocumenterConfig extends BaseDocumenterConfig {
+  provider: 'openai';
+  openai_api_key?: string | undefined;
+  openai_model?: string | undefined;
+}
+
+export interface LMStudioDocumenterConfig extends BaseDocumenterConfig {
+  provider: 'lmstudio';
+  lmstudio_endpoint?: string | undefined;
+  lmstudio_model?: string | undefined;
+}
+
+export interface UndefinedProviderDocumenterConfig extends BaseDocumenterConfig {
+  provider?: undefined;
+}
+
+export type DocumenterConfig =
+  | OpenAIDocumenterConfig
+  | LMStudioDocumenterConfig
+  | UndefinedProviderDocumenterConfig;
+
 // Default configuration with required properties
-export interface DefaultDocumenterConfig {
-  provider: 'openai' | 'lmstudio';
+export interface DefaultOpenAIConfig {
+  provider: 'openai';
   openai_model: string;
+  max_conversation_history: number;
+  default_output_dir: string;
+  timeout: number;
+}
+
+export interface DefaultLMStudioConfig {
+  provider: 'lmstudio';
   lmstudio_endpoint: string;
   lmstudio_model: string;
   max_conversation_history: number;
@@ -39,17 +58,24 @@ export interface DefaultDocumenterConfig {
   timeout: number;
 }
 
-export interface ProviderConfig {
-  provider: 'openai' | 'lmstudio';
-  // OpenAI specific
-  openai_api_key?: string;
-  openai_model?: string;
-  // LMStudio specific
-  lmstudio_endpoint?: string;
-  lmstudio_model?: string;
-  // Common
-  timeout?: number;
+export type DefaultDocumenterConfig = DefaultOpenAIConfig | DefaultLMStudioConfig;
+
+// Provider configuration - discriminated unions
+export interface OpenAIProviderConfig {
+  provider: 'openai';
+  openai_api_key?: string | undefined;
+  openai_model?: string | undefined;
+  timeout?: number | undefined;
 }
+
+export interface LMStudioProviderConfig {
+  provider: 'lmstudio';
+  lmstudio_endpoint?: string | undefined;
+  lmstudio_model?: string | undefined;
+  timeout?: number | undefined;
+}
+
+export type ProviderConfig = OpenAIProviderConfig | LMStudioProviderConfig;
 
 // Provider types
 export interface LLMProvider {
@@ -90,32 +116,46 @@ export interface Tool {
   invoke: (runContext: unknown, input: string) => Promise<string>;
 }
 
-// File operation types
-export interface FileInfo {
-  success: boolean;
+// File operation types - using discriminated unions
+export interface FileInfoSuccess {
+  success: true;
   file_path: string;
-  name?: string;
-  extension?: string;
-  type?: 'directory' | 'file' | 'other';
-  size?: number;
-  last_modified?: string;
-  created?: string;
-  permissions?: string;
-  is_readable?: boolean;
-  is_binary?: boolean;
-  is_large?: boolean;
-  item_count?: number;
-  error?: string;
+  name: string;
+  extension: string;
+  type: 'directory' | 'file' | 'other';
+  size: number;
+  last_modified: string;
+  created: string;
+  permissions: string;
+  is_readable: boolean;
+  is_binary: boolean;
+  is_large: boolean;
+  item_count?: number; // Only for directories
 }
 
-export interface FileContent {
-  success: boolean;
+export interface FileInfoError {
+  success: false;
   file_path: string;
-  size?: number;
-  content?: string;
-  last_modified?: string;
-  error?: string;
+  error: string;
 }
+
+export type FileInfo = FileInfoSuccess | FileInfoError;
+
+export interface FileContentSuccess {
+  success: true;
+  file_path: string;
+  size: number;
+  content: string;
+  last_modified: string;
+}
+
+export interface FileContentError {
+  success: false;
+  file_path: string;
+  error: string;
+}
+
+export type FileContent = FileContentSuccess | FileContentError;
 
 export interface DirectoryItem {
   name: string;
@@ -124,23 +164,37 @@ export interface DirectoryItem {
   last_modified: string | null;
 }
 
-export interface DirectoryListing {
-  success: boolean;
+export interface DirectoryListingSuccess {
+  success: true;
   directory_path: string;
-  contents?: DirectoryItem[];
-  total_items?: number;
-  error?: string;
+  contents: DirectoryItem[];
+  total_items: number;
 }
 
-export interface WriteFileResult {
-  success: boolean;
-  file_path: string;
-  size?: number;
-  created?: string;
-  last_modified?: string;
-  message?: string;
-  error?: string;
+export interface DirectoryListingError {
+  success: false;
+  directory_path: string;
+  error: string;
 }
+
+export type DirectoryListing = DirectoryListingSuccess | DirectoryListingError;
+
+export interface WriteFileSuccess {
+  success: true;
+  file_path: string;
+  size: number;
+  created: string;
+  last_modified: string;
+  message?: string;
+}
+
+export interface WriteFileError {
+  success: false;
+  file_path: string;
+  error: string;
+}
+
+export type WriteFileResult = WriteFileSuccess | WriteFileError;
 
 // Fuzzy search types
 export interface FuzzySearchResult {

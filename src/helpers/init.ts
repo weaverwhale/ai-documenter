@@ -6,7 +6,7 @@ import chalk from 'chalk';
 import readline from 'node:readline/promises';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { DocumenterConfig } from '../types';
+import { DocumenterConfig } from '../types';
 
 /**
  * Initialize documenter in a project with interactive setup
@@ -43,10 +43,8 @@ export const initDocumenter = async (): Promise<void> => {
     const providerChoice = await rl.question(chalk.cyan('Select provider [1]: '));
     const provider = providerChoice === '2' ? 'lmstudio' : 'openai';
 
-    const config: Partial<DocumenterConfig> = {
-      provider,
-      max_conversation_history: 10,
-    };
+    // Config object for JSON file - not constrained by discriminated union since it's just for serialization
+    let config: DocumenterConfig;
 
     if (provider === 'openai') {
       const apiKey = await rl.question(
@@ -55,7 +53,12 @@ export const initDocumenter = async (): Promise<void> => {
       const model =
         (await rl.question(chalk.cyan('OpenAI Model [gpt-4o-mini]: '))) || 'gpt-4o-mini';
 
-      config.openai_model = model;
+      config = {
+        provider: 'openai',
+        openai_model: model,
+        max_conversation_history: 10,
+      };
+
       if (apiKey.trim()) {
         config.openai_api_key = apiKey.trim();
       }
@@ -65,8 +68,12 @@ export const initDocumenter = async (): Promise<void> => {
         'http://localhost:1234/v1';
       const model = (await rl.question(chalk.cyan('Model name [local-model]: '))) || 'local-model';
 
-      config.lmstudio_endpoint = endpoint;
-      config.lmstudio_model = model;
+      config = {
+        provider: 'lmstudio',
+        lmstudio_endpoint: endpoint,
+        lmstudio_model: model,
+        max_conversation_history: 10,
+      };
     }
 
     const outputDir =
@@ -76,9 +83,9 @@ export const initDocumenter = async (): Promise<void> => {
     await fs.writeFile(configPath, JSON.stringify(config, null, 2));
 
     // Create .env file if needed
-    if (provider === 'openai' && config.openai_api_key) {
+    if (config.provider === 'openai' && config.openai_api_key) {
       const envPath = path.join(cwd, '.env');
-      const envContent = `LLM_PROVIDER=${provider}\nOPENAI_API_KEY=${config.openai_api_key}\nOPENAI_MODEL=${config.openai_model}\n`;
+      const envContent = `LLM_PROVIDER=${config.provider}\nOPENAI_API_KEY=${config.openai_api_key}\nOPENAI_MODEL=${config.openai_model}\n`;
 
       try {
         await fs.access(envPath);
@@ -91,9 +98,9 @@ export const initDocumenter = async (): Promise<void> => {
         await fs.writeFile(envPath, envContent);
         console.log(chalk.green('\n✅ Created .env file with your configuration.'));
       }
-    } else if (provider === 'lmstudio') {
+    } else if (config.provider === 'lmstudio') {
       const envPath = path.join(cwd, '.env');
-      const envContent = `LLM_PROVIDER=${provider}\nLMSTUDIO_ENDPOINT=${config.lmstudio_endpoint}\nLMSTUDIO_MODEL=${config.lmstudio_model}\n`;
+      const envContent = `LLM_PROVIDER=${config.provider}\nLMSTUDIO_ENDPOINT=${config.lmstudio_endpoint}\nLMSTUDIO_MODEL=${config.lmstudio_model}\n`;
 
       try {
         await fs.access(envPath);
